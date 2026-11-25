@@ -1,0 +1,7 @@
+# Archivos compilados
+biblioteca
+*.o
+*.out
+
+# Configuración local de VS Code
+.vscode/
