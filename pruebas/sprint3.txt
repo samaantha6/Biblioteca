@@ -1,0 +1,39 @@
+PRUEBAS DEL SPRINT 3
+
+Prueba 1. Funcionamiento general de la aplicación
+Resultado: Correcto.
+Se comprueba que las funcionalidades implementadas durante los Sprints 1 y 2 continúan funcionando correctamente.
+
+Prueba 2. Finalización mediante SIGINT
+Resultado: Correcto.
+Al pulsar Ctrl+C, se inicia la finalización ordenada de los procesos y los hilos de la aplicación.
+
+Prueba 3. Finalización durante el procesamiento de una solicitud
+Resultado: Correcto.
+Se comprueba que los hilos del Depósito finalizan sus tareas antes de terminar el proceso.
+
+Prueba 4. Finalización con la cola de mensajes saturada
+Resultado: Correcto.
+Se ejecuta la aplicación mediante el parámetro --prueba-saturacion y se comprueba que puede finalizar correctamente incluso cuando la cola está llena.
+
+Prueba 5. Liberación de recursos
+Resultado: Correcto.
+Se utilizan los siguientes comandos para comprobar que no quedan recursos ni procesos de la aplicación:
+
+ls /dev/mqueue/
+ls /dev/shm/
+pgrep -a -x biblioteca
+
+No se encuentran recursos ni procesos residuales.
+
+Prueba 6. Código de salida
+Resultado: Correcto.
+Se ejecuta echo $? inmediatamente después de finalizar la aplicación y se obtiene el valor 0.
+
+Prueba 7. Reinicio de la aplicación
+Resultado: Correcto.
+Se comprueba que la aplicación puede volver a ejecutarse sin eliminar manualmente los recursos de ejecuciones anteriores.
+
+CONCLUSIÓN
+
+Las pruebas realizadas permiten verificar el funcionamiento del sistema, la coordinación entre procesos e hilos y la finalización ordenada con la correspondiente liberación de recursos.
