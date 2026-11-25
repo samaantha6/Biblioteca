@@ -19,6 +19,9 @@ pid_t pid_mostrador, pid_deposito;
 
 mqd_t cola;
 
+sem_t sem_extraccion;
+sem_t sem_registro;
+
 int tiempo_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
 }
@@ -30,20 +33,28 @@ void* busqueda(void* arg) {
     sleep(tiempo_aleatorio(1, 3));
     printf("[Hilo Búsqueda] Ejemplar %s localizado. Enviando a extracción...\n", (char *)arg);
 
+    sem_post(&sem_extraccion);
+
     return NULL;
 }
 
 void* extraccion(void* arg) {
+    sem_wait(&sem_extraccion);
+
     printf("[Hilo Extracción] Comienzo mi ejecución...\n");
 
     printf("[Hilo Extracción] Extrayendo ejemplar %s de la estantería...\n", (char *)arg);
     sleep(tiempo_aleatorio(2, 4));
     printf("[Hilo Extracción] Ejemplar %s extraído. Enviando a registro...\n", (char *)arg);
 
+    sem_post(&sem_registro);
+
     return NULL;
 }
 
 void* registro(void* arg) {
+    sem_wait(&sem_registro);
+
     printf("[Hilo Registro] Comienzo mi ejecución...\n");
 
     printf("[Hilo Registro] Registrando préstamo del ejemplar %s...\n", (char *)arg);
@@ -95,6 +106,9 @@ int main(int argc, char* argv[]) {
 
             pthread_t hilo_busqueda, hilo_extraccion, hilo_registro;
 
+            sem_init(&sem_extraccion, 0, 0);
+            sem_init(&sem_registro, 0, 0);
+            
             while(1) {
 
                 if (mq_receive(cola, mensaje, TAM_MENSAJE, NULL) != -1) {
