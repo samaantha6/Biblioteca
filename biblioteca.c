@@ -10,8 +10,14 @@
 #include <string.h>
 #include <sys/shm.h>
 #include <sys/mman.h>
+#include <fcntl.h>
 
 pid_t pid_mostrador, pid_deposito;
+
+#define NOMBRE_COLA "/cola_biblioteca"
+#define TAM_MENSAJE 64
+
+mqd_t cola;
 
 int tiempo_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
@@ -49,6 +55,22 @@ void* registro(void* arg) {
 
 int main(int argc, char* argv[]) {
 
+    struct mq_attr atributos;
+
+    atributos.mq_flags = 0;
+    atributos.mq_maxmsg = 10;
+    atributos.mq_msgsize = TAM_MENSAJE;
+    atributos.mq_curmsgs = 0;
+
+    mq_unlink(NOMBRE_COLA);
+
+    cola = mq_open(NOMBRE_COLA, O_CREAT | O_RDWR, 0666, &atributos);
+
+    if (cola == (mqd_t)-1) {
+        perror("Error al crear la cola de mensajes");
+        exit(EXIT_FAILURE);
+    }
+
     pid_mostrador = fork();
 
     if (pid_mostrador != 0) {
@@ -61,25 +83,42 @@ int main(int argc, char* argv[]) {
             waitpid(pid_mostrador, NULL, 0);
             waitpid(pid_deposito, NULL, 0);
 
+            mq_close(cola);
+            mq_unlink(NOMBRE_COLA);
+
             printf("[Proceso Padre] Ejecución finalizada.\n");
         } else {
             /* Proceso Depósito */
             printf("[Proceso Depósito] Comienzo mi ejecución...\n");
+            char mensaje[TAM_MENSAJE];
 
             while(1) {
-                sleep(1);
+
+                if (mq_receive(cola, mensaje, TAM_MENSAJE, NULL) != -1) {
+
+                    printf("[Proceso Depósito] Recibida solicitud del ejemplar %s.\n", mensaje);
+
+                } else {
+                    perror("Error al recibir la solicitud");
+                }
             }
         }
     } else {
         /* Proceso Mostrador */
         printf("[Proceso Mostrador] Comienzo mi ejecución...\n");
         int num_solicitud = 0;
+        char mensaje[TAM_MENSAJE];
 
         while (1) {
 
             sleep(tiempo_aleatorio(3, 8));
             printf("[Proceso Mostrador] Recibida solicitud de préstamo nº %d. Enviando al depósito...\n", num_solicitud);
 
+            snprintf(mensaje, TAM_MENSAJE, "%d", num_solicitud);
+
+            if (mq_send(cola, mensaje, strlen(mensaje) + 1, 0) == -1) {
+                perror("Error al enviar la solicitud");
+            }
 
             num_solicitud++;
 
