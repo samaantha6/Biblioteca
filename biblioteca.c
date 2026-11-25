@@ -22,6 +22,11 @@ mqd_t cola;
 sem_t sem_extraccion;
 sem_t sem_registro;
 
+#define NOMBRE_MEMORIA "/memoria_biblioteca"
+
+int fd_memoria;
+char *memoria_compartida;
+
 int tiempo_aleatorio(int min, int max) {
     return rand() % (max - min + 1) + min;
 }
@@ -82,6 +87,49 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // Eliminar posibles restos de ejecuciones anteriores
+    shm_unlink(NOMBRE_MEMORIA);
+
+    // Crear la memoria compartida
+    fd_memoria = shm_open(NOMBRE_MEMORIA, O_CREAT | O_RDWR, 0666);
+
+    if (fd_memoria == -1) {
+        perror("Error al crear la memoria compartida");
+        mq_close(cola);
+        mq_unlink(NOMBRE_COLA);
+        exit(EXIT_FAILURE);
+    }
+
+    // Establecer el tamaño de la memoria compartida
+    if (ftruncate(fd_memoria, TAM_MENSAJE) == -1) {
+        perror("Error al establecer el tamaño de la memoria");
+        close(fd_memoria);
+        shm_unlink(NOMBRE_MEMORIA);
+        mq_close(cola);
+        mq_unlink(NOMBRE_COLA);
+        exit(EXIT_FAILURE);
+    }
+
+    // Mapear la memoria compartida
+    memoria_compartida = mmap(NULL, TAM_MENSAJE,
+                            PROT_READ | PROT_WRITE,
+                            MAP_SHARED, fd_memoria, 0);
+
+    if (memoria_compartida == MAP_FAILED) {
+        perror("Error al mapear la memoria compartida");
+        close(fd_memoria);
+        shm_unlink(NOMBRE_MEMORIA);
+        mq_close(cola);
+        mq_unlink(NOMBRE_COLA);
+        exit(EXIT_FAILURE);
+    }
+
+    // Inicializar la memoria compartida
+    memoria_compartida[0] = '\0';
+
+    close(fd_memoria);
+
+
     pid_mostrador = fork();
 
     if (pid_mostrador != 0) {
@@ -97,6 +145,9 @@ int main(int argc, char* argv[]) {
             mq_close(cola);
             mq_unlink(NOMBRE_COLA);
 
+            munmap(memoria_compartida, TAM_MENSAJE);
+            shm_unlink(NOMBRE_MEMORIA);
+
             printf("[Proceso Padre] Ejecución finalizada.\n");
         } else {
             /* Proceso Depósito */
@@ -108,7 +159,7 @@ int main(int argc, char* argv[]) {
 
             sem_init(&sem_extraccion, 0, 0);
             sem_init(&sem_registro, 0, 0);
-            
+
             while(1) {
 
                 if (mq_receive(cola, mensaje, TAM_MENSAJE, NULL) != -1) {
@@ -125,6 +176,9 @@ int main(int argc, char* argv[]) {
                     pthread_join(hilo_extraccion, NULL);
                     pthread_join(hilo_registro, NULL);
 
+                    strcpy(memoria_compartida, mensaje);
+
+                    printf("[Proceso Depósito] Ejemplar %s escrito en memoria compartida.\n", memoria_compartida);
                     printf("[Proceso Depósito] Solicitud del ejemplar %s completada.\n", mensaje);
 
                 } else {
