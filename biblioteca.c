@@ -90,13 +90,28 @@ int main(int argc, char* argv[]) {
         } else {
             /* Proceso Depósito */
             printf("[Proceso Depósito] Comienzo mi ejecución...\n");
+
             char mensaje[TAM_MENSAJE];
+
+            pthread_t hilo_busqueda, hilo_extraccion, hilo_registro;
 
             while(1) {
 
                 if (mq_receive(cola, mensaje, TAM_MENSAJE, NULL) != -1) {
 
                     printf("[Proceso Depósito] Recibida solicitud del ejemplar %s.\n", mensaje);
+
+                    // Creación de los tres hilos
+                    pthread_create(&hilo_busqueda, NULL, busqueda, mensaje);
+                    pthread_create(&hilo_extraccion, NULL, extraccion, mensaje);
+                    pthread_create(&hilo_registro, NULL, registro, mensaje);
+
+                    // Esperamos a que finalicen los tres hilos
+                    pthread_join(hilo_busqueda, NULL);
+                    pthread_join(hilo_extraccion, NULL);
+                    pthread_join(hilo_registro, NULL);
+
+                    printf("[Proceso Depósito] Solicitud del ejemplar %s completada.\n", mensaje);
 
                 } else {
                     perror("Error al recibir la solicitud");
