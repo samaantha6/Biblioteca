@@ -285,7 +285,7 @@ int main(int argc, char* argv[]) {
                     strerror(error));
             exit(EXIT_FAILURE);
         }
-        
+
         while (1) {
 
             sleep(tiempo_aleatorio(3, 8));

@@ -1,0 +1,26 @@
+PRUEBAS DEL SPRINT 2
+
+Prueba 1. Sincronización de los hilos mediante semáforos
+Resultado: Correcto.
+Se comprueba que los tres hilos del Depósito ejecutan sus tareas respetando el orden establecido: búsqueda, extracción y registro.
+
+Prueba 2. Memoria compartida
+Resultado: Correcto.
+El Depósito escribe el identificador del ejemplar una vez finalizados los tres hilos. Se verifica el contenido de la memoria compartida mediante el comando od -c /dev/shm/memoria_biblioteca.
+
+Prueba 3. Comunicación mediante señales
+Resultado: Correcto.
+El Depósito envía SIGUSR1 al Mostrador para notificar que el ejemplar está preparado. El Mostrador lee el identificador almacenado en memoria compartida y envía SIGUSR2 para confirmar la lectura.
+
+Prueba 4. Saturación de la cola con comunicación mediante señales
+Resultado: Correcto.
+Se reduce temporalmente el tiempo de espera del Mostrador a cero segundos para saturar la cola de mensajes.
+
+Se comprueba que, cuando la cola alcanza los 10 mensajes, el hilo principal del Mostrador se bloquea, mientras que el hilo de notificaciones continúa recibiendo las señales del Depósito.
+
+El sistema sigue procesando solicitudes sin producirse interbloqueos durante la prueba. Los identificadores escritos y recibidos coinciden en las solicitudes observadas.
+
+Observaciones:
+La incorporación de un hilo de notificaciones independiente permite mantener la comunicación entre procesos incluso cuando la cola está llena.
+
+La gestión de SIGINT, la finalización ordenada de los hilos y procesos, la liberación de recursos y el control completo de errores quedan pendientes del Sprint 3.
