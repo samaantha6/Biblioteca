@@ -1,0 +1,24 @@
+PRUEBAS DEL SPRINT 1
+
+Prueba 1. Creación de procesos
+Resultado: Correcto.
+El proceso padre crea los procesos Mostrador y Depósito y espera a su finalización mediante waitpid().
+
+Prueba 2. Comunicación entre procesos
+Resultado: Correcto.
+El Mostrador envía solicitudes mediante mq_send() y el Depósito las recibe mediante mq_receive().
+
+Prueba 3. Creación y espera de los hilos
+Resultado: Correcto.
+El Depósito crea los tres hilos mediante pthread_create() y espera su finalización mediante pthread_join() antes de atender una nueva solicitud.
+
+Prueba 4. Saturación de la cola de mensajes
+Resultado: Correcto.
+Se ha reducido temporalmente el tiempo de espera del Mostrador a cero segundos para provocar la saturación de la cola.
+
+Se comprueba que la cola alcanza su capacidad máxima de 10 mensajes, que el Mostrador permanece bloqueado cuando está llena y que continúa su ejecución cuando el Depósito libera un hueco.
+
+Observaciones:
+Los hilos todavía no ejecutan sus tareas en un orden garantizado. Esta sincronización se implementará mediante semáforos durante el Sprint 2.
+
+La gestión de SIGINT y la liberación ordenada de recursos quedan pendientes del Sprint 3.
