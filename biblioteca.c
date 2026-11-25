@@ -24,7 +24,7 @@ void* busqueda(void* arg) {
     sleep(tiempo_aleatorio(1, 3));
     printf("[Hilo Búsqueda] Ejemplar %s localizado. Enviando a extracción...\n", (char *)arg);
 
-
+    return NULL;
 }
 
 void* extraccion(void* arg) {
@@ -34,7 +34,7 @@ void* extraccion(void* arg) {
     sleep(tiempo_aleatorio(2, 4));
     printf("[Hilo Extracción] Ejemplar %s extraído. Enviando a registro...\n", (char *)arg);
 
-
+    return NULL;
 }
 
 void* registro(void* arg) {
@@ -44,6 +44,7 @@ void* registro(void* arg) {
     sleep(tiempo_aleatorio(1, 2));
     printf("[Hilo Registro] Préstamo del ejemplar %s registrado. Notificando al mostrador...\n", (char *)arg);
 
+    return NULL;
 }
 
 int main(int argc, char* argv[]) {
@@ -57,6 +58,8 @@ int main(int argc, char* argv[]) {
 
             printf("[Proceso Padre] Esperando a que terminen mis hijos...\n");
 
+            waitpid(pid_mostrador, NULL, 0);
+            waitpid(pid_deposito, NULL, 0);
 
             printf("[Proceso Padre] Ejecución finalizada.\n");
         } else {
@@ -64,7 +67,7 @@ int main(int argc, char* argv[]) {
             printf("[Proceso Depósito] Comienzo mi ejecución...\n");
 
             while(1) {
-
+                sleep(1);
             }
         }
     } else {
