@@ -11,6 +11,7 @@
 #include <sys/shm.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <errno.h>
 
 pid_t pid_mostrador, pid_deposito;
 
@@ -65,6 +66,39 @@ void* registro(void* arg) {
     printf("[Hilo Registro] Registrando préstamo del ejemplar %s...\n", (char *)arg);
     sleep(tiempo_aleatorio(1, 2));
     printf("[Hilo Registro] Préstamo del ejemplar %s registrado. Notificando al mostrador...\n", (char *)arg);
+
+    return NULL;
+}
+
+void* recibir_notificaciones(void* arg) {
+
+    sigset_t señales;
+    siginfo_t informacion;
+
+    sigemptyset(&señales);
+    sigaddset(&señales, SIGUSR1);
+
+    while (1) {
+
+        // Esperar la señal del Depósito
+        if (sigwaitinfo(&señales, &informacion) == SIGUSR1) {
+
+            // Leer el identificador de la memoria compartida
+            printf("[Proceso Mostrador] Recibida señal SIGUSR1.\n");
+
+            printf("[Proceso Mostrador] Ejemplar %s preparado para entregar al usuario.\n",
+                   memoria_compartida);
+
+            // Confirmar al Depósito que se ha leído el ejemplar
+            if (kill(informacion.si_pid, SIGUSR2) == -1) {
+                perror("Error al enviar SIGUSR2");
+            }
+
+        } else if (errno != EINTR) {
+            perror("Error al recibir SIGUSR1");
+            return NULL;
+        }
+    }
 
     return NULL;
 }
@@ -129,6 +163,23 @@ int main(int argc, char* argv[]) {
 
     close(fd_memoria);
 
+    // Bloquear las señales para recibirlas mediante sigwaitinfo()
+    sigset_t señales;
+
+    sigemptyset(&señales);
+    sigaddset(&señales, SIGUSR1);
+    sigaddset(&señales, SIGUSR2);
+
+    if (sigprocmask(SIG_BLOCK, &señales, NULL) == -1) {
+        perror("Error al bloquear las señales");
+
+        munmap(memoria_compartida, TAM_MENSAJE);
+        shm_unlink(NOMBRE_MEMORIA);
+        mq_close(cola);
+        mq_unlink(NOMBRE_COLA);
+
+        exit(EXIT_FAILURE);
+    }
 
     pid_mostrador = fork();
 
@@ -159,6 +210,12 @@ int main(int argc, char* argv[]) {
 
             sem_init(&sem_extraccion, 0, 0);
             sem_init(&sem_registro, 0, 0);
+           
+            // Preparar la recepción de la confirmación del Mostrador
+            sigset_t confirmacion;
+
+            sigemptyset(&confirmacion);
+            sigaddset(&confirmacion, SIGUSR2);
 
             while(1) {
 
@@ -176,9 +233,34 @@ int main(int argc, char* argv[]) {
                     pthread_join(hilo_extraccion, NULL);
                     pthread_join(hilo_registro, NULL);
 
+                    // Escribir el identificador en memoria compartida
                     strcpy(memoria_compartida, mensaje);
 
-                    printf("[Proceso Depósito] Ejemplar %s escrito en memoria compartida.\n", memoria_compartida);
+                    printf("[Proceso Depósito] Ejemplar %s escrito en memoria compartida.\n",
+                        memoria_compartida);
+
+                    // Notificar al Mostrador
+                    printf("[Proceso Depósito] Enviando SIGUSR1 al Mostrador.\n");
+
+                    if (kill(pid_mostrador, SIGUSR1) == -1) {
+                        perror("Error al enviar SIGUSR1");
+                        break;
+                    }
+
+                    // Esperar a que el Mostrador confirme la lectura
+                    int resultado;
+
+                    do {
+                        resultado = sigwaitinfo(&confirmacion, NULL);
+                    } while (resultado == -1 && errno == EINTR);
+
+                    if (resultado == -1) {
+                        perror("Error al recibir SIGUSR2");
+                        break;
+                    }
+
+                    printf("[Proceso Depósito] Confirmación SIGUSR2 recibida.\n");
+
                     printf("[Proceso Depósito] Solicitud del ejemplar %s completada.\n", mensaje);
 
                 } else {
@@ -191,7 +273,19 @@ int main(int argc, char* argv[]) {
         printf("[Proceso Mostrador] Comienzo mi ejecución...\n");
         int num_solicitud = 0;
         char mensaje[TAM_MENSAJE];
+        
+        // Crear el hilo encargado de recibir las notificaciones
+        pthread_t hilo_notificaciones;
 
+        int error = pthread_create(&hilo_notificaciones, NULL,
+                                recibir_notificaciones, NULL);
+
+        if (error != 0) {
+            fprintf(stderr, "Error al crear el hilo de notificaciones: %s\n",
+                    strerror(error));
+            exit(EXIT_FAILURE);
+        }
+        
         while (1) {
 
             sleep(tiempo_aleatorio(3, 8));
